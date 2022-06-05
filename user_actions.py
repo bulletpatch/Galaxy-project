@@ -1,3 +1,4 @@
+from kivy.uix.relativelayout import RelativeLayout
 
 
 def keyboard_closed(self):
@@ -22,14 +23,20 @@ def on_keyboard_up(self, keyboard, keycode):
 
 def on_touch_down(self, touch):
     self.SPEED_X = self.width / self.SPEED_X_FACTOR
-    if touch.x < self.width * 0.5:
-        print("left-side touch")
-        self.current_speed_x = self.SPEED_X
-    else:
-        print("right-side touch")
-        self.current_speed_x = -self.SPEED_X
+
+    if not self.state_game_over and self.state_game_started:
+        if touch.x < self.width * 0.5:
+            # print("left-side touch")
+            self.current_speed_x = self.SPEED_X
+        else:
+            # print("right-side touch")
+            self.current_speed_x = -self.SPEED_X
+    # This method overrides the default behaviour - this is why the menu's button press does not register. But by
+    # returning the MainWidget's parent class and calling its on_touch method we can propagate the touch event to the
+    # default behaviour and get the correct action.
+    return super(RelativeLayout, self).on_touch_down(touch)
 
 
 def on_touch_up(self, touch):
-    print("UP")
+    # print("UP")
     self.current_speed_x = 0

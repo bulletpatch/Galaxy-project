@@ -1,34 +1,41 @@
-import random
-
 from kivy.config import Config
+
 Config.set("graphics", "width", "900")
 Config.set("graphics", "height", "400")
 
 from kivy import platform
 from kivy.app import App
+from kivy.core.audio import SoundLoader
 from kivy.core.window import Window
 from kivy.graphics import Color, Line, Quad, Triangle
-from kivy.properties import NumericProperty, Clock
-from kivy.uix.widget import Widget
+from kivy.properties import NumericProperty, Clock, ObjectProperty, StringProperty
+from kivy.uix.relativelayout import RelativeLayout
+from random import randint
 
 
-class MainWidget(Widget):
+class MainWidget(RelativeLayout):
     # import inside class to preserve pointers and calls to "self"
     from transforms import transform, transform_2D, transform_perspective
     from user_actions import keyboard_closed, on_keyboard_up, on_keyboard_down, on_touch_down, on_touch_up
+
     perspective_point_x = NumericProperty(0)
     perspective_point_y = NumericProperty(0)
+    menu_widget = ObjectProperty()
 
-    V_NB_LINES = 12
+    menu_title = StringProperty("G   A   L   A   X   Y")
+    menu_button_title = StringProperty("START")
+    score_txt = StringProperty("")
+
+    V_NB_LINES = 15
     V_LINES_SPACING = 0.15       # Percentage in screen width
     vertical_lines = []         # list of lines
 
-    H_NB_LINES = 12
-    H_LINES_SPACING = 0.25  # Percentage in screen width
+    H_NB_LINES = 15
+    H_LINES_SPACING = 0.15  # Percentage in screen width
     horizontal_lines = []  # list of lines
 
     SPEED = 0
-    SPEED_FACTOR = 300      # Larger is slower
+    SPEED_FACTOR = 80      # Larger is slower
     current_offset_y = 0
     current_y_loop = 0
 
@@ -47,16 +54,25 @@ class MainWidget(Widget):
     ship = None
     ship_coordinates = [(0, 0), (0, 0), (0, 0)]
 
+    state_game_over = False
+    state_game_started = False
+
+    sound_begin = None
+    sound_galaxy = None
+    sound_gameover_impact = None
+    sound_gameover_voice = None
+    sound_music1 = None
+    sound_restart = None
+
     def __init__(self, **kwargs):
         super(MainWidget, self).__init__(**kwargs)
-        # print("On_Init Width: " + str(self.width) + "  Height: " + str(self.height))
 
+        self.init_audio()
         self.init_vertical_lines()
         self.init_horizontal_lines()
         self.init_tiles()
         self.init_ship()
-        self.prefill_tile_coordinates()
-        self.generate_tile_coordinates()
+        self.reset_game()
 
         # Only init keyboard if we're on desktop -- not for mobile
         if self.is_desktop():
@@ -65,17 +81,40 @@ class MainWidget(Widget):
             self._keyboard.bind(on_key_up=self.on_keyboard_up)
 
         Clock.schedule_interval(self.update, 1.0/60.0)  # Schedule frame update at 60fps
+        self.sound_galaxy.play()
+
+    def init_audio(self):
+        self.sound_begin = SoundLoader.load("audio/begin.wav")
+        self.sound_galaxy = SoundLoader.load("audio/galaxy.wav")
+        self.sound_gameover_impact = SoundLoader.load("audio/gameover_impact.wav")
+        self.sound_gameover_voice = SoundLoader.load("audio/gameover_voice.wav")
+        self.sound_music1 = SoundLoader.load("audio/music1.wav")
+        self.sound_restart = SoundLoader.load("audio/restart.wav")
+
+        self.sound_music1.volume = 1
+        self.sound_begin.volume = .25
+        self.sound_galaxy.volume = .25
+        self.sound_gameover_impact.volume = .25
+        self.sound_gameover_voice.volume = .6
+        self.sound_restart.volume = .25
+
+    def reset_game(self):
+        self.current_offset_y = 0
+        self.current_y_loop = 0
+        self.current_speed_x = 0
+        self.current_offset_x = 0
+        self.score_txt = "SCORE: " + str(self.current_y_loop * 20)
+
+        self.tile_coordinates = []
+        self.prefill_tile_coordinates()
+        self.generate_tile_coordinates()
+
+        self.state_game_over = False
 
     def is_desktop(self):
         if platform in ("linux", "win", "macosx"):
             return True
         return False
-
-    def on_perspective_point_x(self, widget, value):
-        print("Px: " + str(value))
-
-    def on_perspective_point_y(self, widget, value):
-        print("Py: " + str(value))
 
     def init_ship(self):
         with self.canvas:
@@ -120,11 +159,10 @@ class MainWidget(Widget):
                 return True
         return False    # No collision with tile detected
 
-
     def init_vertical_lines(self):
         with self.canvas:
             Color(1, 1, 1)
-            # self.line = Line(points=[100, 0, 100, 100])
+            # self.line = Line(points=[x1, y1, x2, y2])
             for i in range(self.V_NB_LINES):
                 self.vertical_lines.append(Line())
 
@@ -157,7 +195,7 @@ class MainWidget(Widget):
                 del self.tile_coordinates[i]
 
         if len(self.tile_coordinates) > 0:
-            # If theres something in the list, get the y of the last element and increment
+            # If there's something in the list, get the y of the last element and increment
             last_coordinates = self.tile_coordinates[-1]
             last_y = last_coordinates[1] + 1    # Increment to move forward
             last_x = last_coordinates[0]
@@ -173,7 +211,7 @@ class MainWidget(Widget):
                 # if at right boundary, force left
                 r = 2
             else:
-                r = random.randint(0, 2)
+                r = randint(0, 2)
             # 0 -> straight
             # 1 -> right
             # 2 -> left
@@ -206,7 +244,7 @@ class MainWidget(Widget):
 
     def get_tile_coordinates(self, tile_index_x, tile_index_y):
         # This variable ensures that the tile keeps a "fixed" position and "moves down", instead of resetting to initial
-        # position on every loop of the update method function. Guarantees tiles will move out of screen
+        # position on every loop of the update method. Guarantees the tiles will move out of screen.
         tile_index_y = tile_index_y - self.current_y_loop
 
         x = self.get_line_x_from_index(tile_index_x)
@@ -265,20 +303,46 @@ class MainWidget(Widget):
         self.update_tiles()
         self.update_ship()
 
-        # Movement on y-axis
-        self.SPEED = self.height / self.SPEED_FACTOR
-        self.current_offset_y += self.SPEED * time_factor
-        spacing_y = self.H_LINES_SPACING * self.height
-        if self.current_offset_y >= spacing_y:
-            self.current_offset_y -= spacing_y
-            self.current_y_loop += 1
-            self.generate_tile_coordinates()
+        # Game in progress
+        if not self.state_game_over and self.state_game_started:
+            # Movement on y-axis
+            self.SPEED = self.height / self.SPEED_FACTOR
+            self.current_offset_y += self.SPEED * time_factor
+            spacing_y = self.H_LINES_SPACING * self.height
+            while self.current_offset_y >= spacing_y:
+                self.current_offset_y -= spacing_y
+                self.current_y_loop += 1
+                self.score_txt = "SCORE: " + str(self.current_y_loop * 20)
+                self.generate_tile_coordinates()
 
-        # Movement on x-axis
-        self.current_offset_x += self.current_speed_x * time_factor
+            # Movement on x-axis
+            self.current_offset_x += self.current_speed_x * time_factor
 
-        if not self.check_ship_collision():
+        # Game over trigger
+        if not self.check_ship_collision() and not self.state_game_over:
+            self.state_game_over = True
+            self.menu_title = "G  A  M  E    O  V  E  R"
+            self.menu_button_title = "RESTART"
+            self.menu_widget.opacity = 1
+            self.sound_music1.stop()
+            self.sound_gameover_impact.play()
+            Clock.schedule_once(self.play_game_over_voice_sound, 2)
             print("GAME OVER")
+
+    def play_game_over_voice_sound(self, dt):
+        if self.state_game_over:
+            self.sound_gameover_voice.play()
+
+    def on_menu_button_pressed(self):
+        print("START GAME")
+        if self.state_game_over:
+            self.sound_restart.play()
+        else:
+            self.sound_begin.play()
+        self.sound_music1.play()
+        self.reset_game()
+        self.state_game_started = True
+        self.menu_widget.opacity = 0
 
 
 class GalaxyApp(App):

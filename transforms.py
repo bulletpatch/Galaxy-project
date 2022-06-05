@@ -1,7 +1,7 @@
 
 def transform(self, x, y):
-    return self.transform_2D(x, y)
-    # return self.transform_perspective(x, y)
+    # return self.transform_2D(x, y)
+    return self.transform_perspective(x, y)
 
 
 def transform_2D(self, x, y):
@@ -16,15 +16,7 @@ def transform_perspective(self, x, y):
     # transformed y is a simply a proportion of the perspective_y limit
     # transformed x is calculated proportional to the position on the (new) y-axis: it is basically asking what is
     # the new x-coordinate based on how high up we are on the slope? [ m=(y2-y1)/(x2-x1) ]
-    #   if pro_y == 0, tr_x = input_x; if pro_y == 1, tr_x = offset
-    '''
-    # my code
-    proportion_y = 1 - (linear_y / self.perspective_point_y)
-    offset = self.perspective_point_x
-    transformed_x = offset + (x - offset) * proportion_y
 
-    transformed_y = 0
-    '''
     diff_x = x - self.perspective_point_x
     diff_y = self.perspective_point_y - linear_y
     factor_y = diff_y / self.perspective_point_y

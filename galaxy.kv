@@ -1,5 +1,22 @@
+#:import menu menu
 
 MainWidget:
-    # This creates a binding that will watch for any changes to self.width and self.height and auto update the expression function.
+
+<MainWidget>:
+    menu_widget: menu_widget
+    # This creates a binding that will watch for any changes to self.width and self.height and auto update the expression.
     perspective_point_x: self.width * 0.5       # Middle of screen
     perspective_point_y: self.height * 0.75     # 75% of height
+    canvas.before:
+        Rectangle:
+            source: 'images/bg1.jpg'
+            pos: self.pos
+            size: self.size
+    MenuWidget:
+        id: menu_widget
+    Label:
+        text: root.score_txt
+        font_size: dp(20)
+        font_name: 'fonts/Eurostile.ttf'
+        size_hint: .18, .18
+        pos_hint: {"x": 0, "top": 1}
